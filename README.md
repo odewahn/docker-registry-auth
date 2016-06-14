@@ -1,6 +1,6 @@
-# Docker Registry Authentication in Go
+# Docker Registry Authentication in Go and `httpie`
 
-This repo shows how to authenticate against the Docker registry and retrieve the manifest for a repo.  I'll go (ha!) step by step, and show how to use [httpie](https://github.com/jkbrzt/httpie) as a client, and then show the corresponding go code that performs the equivalent operation.  I'll be using the great [gorequest](https://github.com/parnurzeal/gorequest) library to make all the http calls.
+This repo provides a [go program](main.go) and a set of calls made with the [httpie](https://github.com/jkbrzt/httpie) client to authenticate against the Docker registry and retrieve the manifest for an image.  
 
 If you want to run the example, you need to set a `USER` and `PWD` environment variable.  I like to do this from the command line, like this:
 
@@ -8,11 +8,14 @@ If you want to run the example, you need to set a `USER` and `PWD` environment v
 USER=odewahn PWD=mysecret go run main.go
 ```
 
+I'll be using the great [gorequest](https://github.com/parnurzeal/gorequest) library to make all the http calls.
+
 For other references and additional information, see:
 
 * https://docs.docker.com/v1.6/registry/spec/api/
 * https://docs.docker.com/registry/spec/auth/token/
 * http://www.cakesolutions.net/teamblogs/docker-registry-api-calls-as-an-authenticated-user
+* https://jwt.io
 
 
 ## Make an Initial Request to an Authenticated Service
