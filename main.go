@@ -39,7 +39,7 @@ func main() {
 	request := gorequest.New()
 
 	//url := "https://index.docker.io/v2/odewahn/myalpine/tags/list"
-	url := "https://registry.gitlab.com/v2/andrew18/container-test/tags/list"
+	url := "https://index.docker.io/v2/odewahn/myalpine/manifests/latest"
 
 	// First step is to get the endpoint where we'll be authenticating
 	resp, _, _ := request.Get(url).End()
