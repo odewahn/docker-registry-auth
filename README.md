@@ -17,7 +17,9 @@ For other references and additional information, see:
 
 ## Make an Initial Request to an Authenticated Service
 
-The first step is to make a request to a service that requires authentication.  In this example, I'll get the manifest information for a repo called `odewahn/myalpine:latest`
+The first step is to make a request to a service that requires authentication.  In this example, I'll get the manifest information for a repo called `odewahn/myalpine:latest`. In the golang example, this step is handled in [lines 41-45](https://github.com/odewahn/docker-registry-auth/blob/master/main.go#L41-L45).  
+
+Here is the equivalent step in `http`:
 
 ```
 http https://index.docker.io/v2/odewahn/myalpine/manifests/latest
@@ -52,17 +54,24 @@ Www-Authenticate: Bearer realm="https://auth.docker.io/token",service="registry.
 
 ```
 
-Note the `401 Unauthorized` return code.
-
-# Use the stuff in `Www-Authentication` header to answer the challenge
-
-In order to make an authorized call, we have to use the information returned in the `Www-Authenticate` header:
+Note the `401 Unauthorized` return code, as well as the information returned in the `Www-Authenticate` header:
 
 ```
 Www-Authenticate: Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:odewahn/myalpine:pull"
 ```
 
-Once you have the challenge information, you have to make a request like this (note that the article does not URL encode the data, so the link breaks and curl returns a 404):
+We'll need this in the next step.
+
+# Use the stuff in `Www-Authentication` header to answer the challenge
+
+Once you have the challenge information, you must:
+
+* Make a request to the `realm` specified in the `Www-Authenticate` header
+* Use basic authentication to provide your user name and password
+* Supply the other items from `Www-Authenticate` as parameters.  The [parseBearer function (lines 13-32)](https://github.com/odewahn/docker-registry-auth/blob/master/main.go#L13-L32) of the golang code show one implementation for this.  I'D LOVE OTHER EXAMPLES OF BETTER WAYS TO PARSE THIS, THOUGH!
+
+This call is made in [lines 52-57](https://github.com/odewahn/docker-registry-auth/blob/master/main.go#L52-L57).  Here's the equivalent call in the `http` tool:
+
 
 ```
 export PWD=<insert your password here>
@@ -86,13 +95,19 @@ Strict-Transport-Security: max-age=31536000
 }
 ```
 
-# Resubmit the original request and pass the token in the header
+# Resubmit the original request with token in the header
+
+[Lines 59-60](https://github.com/odewahn/docker-registry-auth/blob/master/main.go#L59-L60) unmarshal the body of the call into a `map` so that we can work with the token that is returned.  The token itself is a [jwt](https://jwt.io/) token that encodes the data we need to make an authorized call.  If you're interested, you can use the online dubugger on the project page to decode it
+
+<img src="jwt-debugger-screenshot.png" />
+
+Once you have the token value, the last step is to resubmit your origina request, but this time pass the an `Authorization` header with the format `Bearer <your token>`.  This is done in [lines 66-68 ](https://github.com/odewahn/docker-registry-auth/blob/master/main.go#L66-L68)
 
 ```
 http https://index.docker.io/v2/odewahn/myalpine/manifests/latest 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsIng1YyI6WyJNSUlDTHpDQ0FkU2dBd0lCQWdJQkFEQUtCZ2dxaGtqT1BRUURBakJHTVVRd1FnWURWUVFERXp0Uk5Gb3pPa2RYTjBrNldGUlFSRHBJVFRSUk9rOVVWRmc2TmtGRlF6cFNUVE5ET2tGU01rTTZUMFkzTnpwQ1ZrVkJPa2xHUlVrNlExazFTekFlRncweE5qQTFNekV5TXpVNE5UZGFGdzB4TnpBMU16RXlNelU0TlRkYU1FWXhSREJDQmdOVkJBTVRPMUV6UzFRNlFqSkpNenBhUjFoT09qSlhXRTA2UTBWWFF6cFVNMHhPT2tvMlYxWTZNbGsyVHpwWlFWbEpPbGhQVTBRNlZFUlJTVG8wVWtwRE1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRVo0NkVLV3VKSXhxOThuUC9GWEU3U3VyOXlkZ3c3K2FkcndxeGlxN004VHFUa0N0dzBQZm1SS2VLdExwaXNTRFU4LzZseWZ3QUFwZWh6SHdtWmxZR2dxT0JzakNCcnpBT0JnTlZIUThCQWY4RUJBTUNCNEF3RHdZRFZSMGxCQWd3QmdZRVZSMGxBREJFQmdOVkhRNEVQUVE3VVROTFZEcENNa2t6T2xwSFdFNDZNbGRZVFRwRFJWZERPbFF6VEU0NlNqWlhWam95V1RaUE9sbEJXVWs2V0U5VFJEcFVSRkZKT2pSU1NrTXdSZ1lEVlIwakJEOHdQWUE3VVRSYU16cEhWemRKT2xoVVVFUTZTRTAwVVRwUFZGUllPalpCUlVNNlVrMHpRenBCVWpKRE9rOUdOemM2UWxaRlFUcEpSa1ZKT2tOWk5Vc3dDZ1lJS29aSXpqMEVBd0lEU1FBd1JnSWhBTzYxSWloN1FUcHNTMFFIYUNwTDFZTWNMMnZXZlNydlhHbHpSRDEwN2NRUEFpRUFtZXduelNYRHplRGxqcDc4T1NsTFFzbnROYWM5eHRyYW0xU0kxY0ZXQ2tJPSJdfQ.eyJhY2Nlc3MiOlt7InR5cGUiOiJyZXBvc2l0b3J5IiwibmFtZSI6Im9kZXdhaG4vbXlhbHBpbmUiLCJhY3Rpb25zIjpbInB1bGwiXX1dLCJhdWQiOiJyZWdpc3RyeS5kb2NrZXIuaW8iLCJleHAiOjE0NjU5MjAxMTMsImlhdCI6MTQ2NTkxOTgxMywiaXNzIjoiYXV0aC5kb2NrZXIuaW8iLCJqdGkiOiJpWEJTU3k4eDlyRG5EWE9uZVBlMCIsIm5iZiI6MTQ2NTkxOTgxMywic3ViIjoiOTU4MzExZDgtNzRjMC0xMWU0LWJlYTQtMDI0MmFjMTEwMDFiIn0.b3L4IOlzs0v2asOjpVMWZBYZ1g_qP3krK08mah7De-QelLUV9KVUIOmO7tKxC0nPB6fRl0f307C1tL5rMkobRA'
 ```
 
-Returns this:
+Here's the data you'll get back.  Note that this time you get a `200 OK` return code and lots of good data about the manifest for the image:
 
 ```
 HTTP/1.1 200 OK
